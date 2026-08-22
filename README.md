@@ -1,71 +1,75 @@
-# insiders-bot skill
+# insiders-skill
 
-An agent skill for [PolyInsiders](https://api.polyinsiders.com) — smart-money
-signals on Polymarket prediction markets.
+Trade [Polymarket](https://polymarket.com) from your terminal — an agent skill for
+[PolyInsiders](https://api.polyinsiders.com).
 
-Drop it into any agent that reads `SKILL.md` (Claude Code, Claude Agent SDK, or
-your own loader) and the agent learns how to answer questions like *"what are
-informed traders betting on in geopolitics?"*, *"how did that call turn out?"*,
-or *"what did this wallet's year look like?"* — with citable, permanent URLs
-instead of guesses.
+Install it into any agent that reads `SKILL.md` and that agent can look up
+markets, check balances, place and close trades, redeem winnings, copy traders,
+and pull the smart-money signal feed — without you leaving the shell.
+
+```
+you  ▸ what's smart money buying in geopolitics?
+you  ▸ show me the orderbook for that market
+you  ▸ buy $25 of Yes at 0.42
+you  ▸ what are my open positions?
+```
 
 ## Install
 
-**Claude Code** — clone into your skills directory:
+**Claude Code**
 
 ```bash
-git clone https://github.com/<org>/insiders-skill.git ~/.claude/skills/insiders-bot
+git clone https://github.com/SigmaLabsAI/insiders-skills.git ~/.claude/skills/insiders-bot
 ```
 
-**Anything else** — the skill is a single self-contained `SKILL.md`. Load it as
-a system prompt fragment, a tool description, or context.
+**Anything else** — `SKILL.md` is self-contained. Load it as a system prompt
+fragment, a tool description, or plain context.
 
-## What it wraps
+## API
 
-Three public, unauthenticated, read-only endpoints. No API key, no signup.
-
-| Endpoint | Returns |
+| | |
 |---|---|
-| `GET /v1/stats` | Track record — resolved calls, hit rate, per-category breakdown |
-| `GET /v1/signals` | Recent signals, filterable by `category` and `status` |
-| `GET /v1/wrapped/:address` | Any Polymarket wallet's year in review |
+| Base URL | `https://api.polyinsiders.com` |
+| Spec | [`/openapi.json`](https://api.polyinsiders.com/openapi.json) — 116 endpoints, OpenAPI 3 |
+| Docs | [`/api-docs/`](https://api.polyinsiders.com/api-docs/) |
+
+Market data, balances, signals and the track record are public — no key, no
+signup. Wallets, orders, positions and redemption take a JWT from
+`POST /api/auth/login/wallet`.
 
 ```bash
 curl -s https://api.polyinsiders.com/v1/stats
+curl -s "https://api.polyinsiders.com/v1/signals?category=politics&status=resolved&limit=5"
 ```
 
-## How the signals are made
+## What it covers
 
-A wallet **qualifies** in a category at ≥70% trade-level win rate over ≥15
-resolved buys *in that category*. A signal **publishes** only when ≥3 qualified
-wallets independently buy the same outcome. Resolution is on-chain settlement.
+- **Markets** — look up a market or event, live orderbook quotes, resolve a
+  Polymarket username to an address
+- **Wallets** — balances for any address; the authenticated user's custodial
+  wallet is provisioned automatically on first contact
+- **Trading** — market and limit buys and sells, close a position, cancel orders
+- **Portfolio** — open and closed positions, aggregate P&L, trade history
+- **Settlement** — redeem winnings on resolved markets
+- **Copytrading** — rank traders, subscribe, adjust, stop
+- **Signals** — what qualified wallets are buying, the resolved track record, and
+  any wallet's year in review
 
-A signal means "several independently-good wallets agree" — not a prediction.
-The skill is explicit about this so agents describe it accurately.
+## Signals
 
-## Why the skill is opinionated
+A wallet qualifies in a category at ≥70% trade-level win rate over ≥15 resolved
+buys in that category. A signal publishes only when ≥3 qualified wallets
+independently buy the same outcome. Resolution is on-chain settlement.
 
-Most of `SKILL.md` is not endpoint documentation — it's the handful of things
-that make the difference between an agent citing this data correctly and an
-agent quoting a misleading number:
+Every signal has a permanent page showing the wallets behind it, their entry
+prices, and how it settled.
 
-- **Always pair a return with its entry price.** "+476%" is noise; "+476% from a
-  67¢ entry" is a fact. Payout is capped at 1.00, so the entry price *is* the
-  return.
-- **`avgWinPct` is the mean profit on winners only** — not a portfolio return.
-- **Check `truncated` before quoting a Wrapped.** Polymarket's history API
-  refuses offsets past 5,000, so busy wallets return only recent trades. Counts
-  become floors, and time-shaped fields are omitted rather than computed from a
-  biased sample.
-- **Win rate and realized P&L are deliberately absent** from Wrapped. Upstream
-  `closed-positions` returns only a wallet's *winning* closed positions, so any
-  win rate derived from it is 100% for every wallet alive. No number beats a
-  flattering fake one.
+## Safety
 
-## Not financial advice
+The skill instructs agents to confirm before anything that spends money — buys,
+sells and copytrade subscriptions place real orders and are not reversible.
 
-Hit rate is historical and does not carry forward. The skill instructs agents to
-say so when a user sounds like they're about to act on it.
+Not financial advice. Historical hit rate does not carry forward.
 
 ## License
 
